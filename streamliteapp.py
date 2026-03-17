@@ -9,7 +9,7 @@ from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
 
 # ---------------------------
-# 🔑 API KEY (USE .env or Streamlit secrets in real apps)
+# 🔑 API KEY (USE ENV VARIABLE)
 # ---------------------------
 os.environ["OPENAI_API_KEY"] = "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"
 
@@ -54,7 +54,7 @@ def load_documents(uploaded_files):
     return docs
 
 # ---------------------------
-# Process Documents (Chroma)
+# Process Documents
 # ---------------------------
 def process_documents(docs):
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -68,11 +68,10 @@ def process_documents(docs):
         persist_directory="./chroma_db"
     )
 
-    vectorstore.persist()
     return vectorstore
 
 # ---------------------------
-# Load Existing DB (Optional)
+# Load Existing DB
 # ---------------------------
 def load_existing_db():
     if os.path.exists("./chroma_db"):
@@ -83,28 +82,28 @@ def load_existing_db():
         )
     return None
 
-# Try loading existing DB
+# Load DB if exists
 if st.session_state.vectorstore is None:
     st.session_state.vectorstore = load_existing_db()
 
 # ---------------------------
-# File Upload
+# Upload Files
 # ---------------------------
 uploaded_files = st.file_uploader(
-    "📂 Upload multiple documents",
+    "📂 Upload documents",
     type=["pdf", "txt", "docx"],
     accept_multiple_files=True
 )
 
 if uploaded_files and st.button("🔄 Process Documents"):
-    with st.spinner("Processing documents..."):
+    with st.spinner("Processing..."):
         docs = load_documents(uploaded_files)
         st.session_state.vectorstore = process_documents(docs)
 
-    st.success("✅ Documents processed successfully!")
+    st.success("✅ Done!")
 
 # ---------------------------
-# Chat Section
+# Chat
 # ---------------------------
 if st.session_state.vectorstore:
 
@@ -119,21 +118,20 @@ if st.session_state.vectorstore:
         retriever=st.session_state.vectorstore.as_retriever(search_kwargs={"k": 3})
     )
 
-    query = st.chat_input("Ask something about your documents...")
+    query = st.chat_input("Ask something...")
 
     if query:
         result = qa.invoke({"query": query})
         answer = result["result"]
 
-        # Save chat history
         st.session_state.chat_history.append(("user", query))
         st.session_state.chat_history.append(("bot", answer))
 
 # ---------------------------
 # Display Chat
 # ---------------------------
-for role, message in st.session_state.chat_history:
+for role, msg in st.session_state.chat_history:
     if role == "user":
-        st.chat_message("user").write(message)
+        st.chat_message("user").write(msg)
     else:
-        st.chat_message("assistant").write(message)
+        st.chat_message("assistant").write(msg)
