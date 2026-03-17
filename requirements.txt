@@ -4,7 +4,8 @@ langchain==0.1.17
 langchain-community==0.0.36
 langchain-openai==0.1.6
 
-faiss-cpu==1.13.0
+chromadb==0.4.24
+
 sentence-transformers==2.6.1
 
 pypdf==4.2.0
