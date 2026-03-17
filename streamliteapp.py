@@ -3,13 +3,13 @@ import os
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
 
 # ---------------------------
-# 🔑 API KEY (PUT YOUR NEW KEY)
+# 🔑 API KEY (USE .env or Streamlit secrets in real apps)
 # ---------------------------
 os.environ["OPENAI_API_KEY"] = "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"
 
@@ -17,10 +17,10 @@ os.environ["OPENAI_API_KEY"] = "gsk_7k5twnsQk8P1g2bbEXUVWGdyb3FY3UqhQ6Pcuo7fHpvv
 # Streamlit UI
 # ---------------------------
 st.set_page_config(page_title="RAG Chat App", layout="wide")
-st.title("📄 Chat with Your Documents (Groq RAG)")
+st.title("📄 Chat with Your Documents (Chroma RAG)")
 
 # ---------------------------
-# Session State (for chat)
+# Session State
 # ---------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -54,16 +54,38 @@ def load_documents(uploaded_files):
     return docs
 
 # ---------------------------
-# Process Documents
+# Process Documents (Chroma)
 # ---------------------------
 def process_documents(docs):
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(docs)
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_documents(chunks, embeddings)
 
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        persist_directory="./chroma_db"
+    )
+
+    vectorstore.persist()
     return vectorstore
+
+# ---------------------------
+# Load Existing DB (Optional)
+# ---------------------------
+def load_existing_db():
+    if os.path.exists("./chroma_db"):
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        return Chroma(
+            persist_directory="./chroma_db",
+            embedding_function=embeddings
+        )
+    return None
+
+# Try loading existing DB
+if st.session_state.vectorstore is None:
+    st.session_state.vectorstore = load_existing_db()
 
 # ---------------------------
 # File Upload
@@ -75,7 +97,6 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files and st.button("🔄 Process Documents"):
-
     with st.spinner("Processing documents..."):
         docs = load_documents(uploaded_files)
         st.session_state.vectorstore = process_documents(docs)
@@ -104,7 +125,7 @@ if st.session_state.vectorstore:
         result = qa.invoke({"query": query})
         answer = result["result"]
 
-        # Save chat
+        # Save chat history
         st.session_state.chat_history.append(("user", query))
         st.session_state.chat_history.append(("bot", answer))
 
